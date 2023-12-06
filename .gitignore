@@ -33,3 +33,7 @@ _testmain.go
 
 .vscode/
 cmd/gost/gost
+
+go.sum
+__debug_bin*
+mtls.proxy

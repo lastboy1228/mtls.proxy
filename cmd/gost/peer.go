@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ginuerzh/gost"
+	gost "github.com/lastboy1228/mtls.proxy"
 )
 
 type peerConfig struct {

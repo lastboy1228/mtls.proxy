@@ -18,6 +18,7 @@ import (
 
 type quicSession struct {
 	session quic.EarlyConnection
+	cancel  context.CancelFunc
 }
 
 func (session *quicSession) GetConn() (*quicConn, error) {
@@ -33,6 +34,7 @@ func (session *quicSession) GetConn() (*quicConn, error) {
 }
 
 func (session *quicSession) Close() error {
+	session.cancel()
 	return session.session.CloseWithError(quic.ApplicationErrorCode(0), "closed")
 }
 
@@ -114,16 +116,17 @@ func (tr *quicTransporter) initSession(addr net.Addr, conn net.PacketConn) (*qui
 		MaxIdleTimeout:       config.IdleTimeout,
 		KeepAlivePeriod:      config.KeepAlivePeriod,
 		Versions: []quic.VersionNumber{
-			quic.Version1,
-			quic.VersionDraft29,
+			quic.Version2,
 		},
 	}
-	session, err := quic.DialEarly(conn, addr, addr.String(), tlsConfigQUICALPN(config.TLSConfig), quicConfig)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	session, err := quic.DialEarly(ctx, conn, addr, tlsConfigQUICALPN(config.TLSConfig), quicConfig)
 	if err != nil {
 		log.Logf("quic dial %s: %v", addr, err)
+		cancel()
 		return nil, err
 	}
-	return &quicSession{session: session}, nil
+	return &quicSession{session: session, cancel: cancel}, nil
 }
 
 func (tr *quicTransporter) Multiplex() bool {
@@ -141,7 +144,7 @@ type QUICConfig struct {
 }
 
 type quicListener struct {
-	ln       quic.EarlyListener
+	ln       *quic.EarlyListener
 	connChan chan net.Conn
 	errChan  chan error
 }
@@ -156,8 +159,7 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 		KeepAlivePeriod:      config.KeepAlivePeriod,
 		MaxIdleTimeout:       config.IdleTimeout,
 		Versions: []quic.VersionNumber{
-			quic.Version1,
-			quic.VersionDraft29,
+			quic.Version2,
 		},
 	}
 
@@ -180,13 +182,13 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 		conn = &quicCipherConn{PacketConn: conn, key: config.Key}
 	}
 
-	ln, err := quic.ListenEarly(conn, tlsConfigQUICALPN(tlsConfig), quicConfig)
+	listener, err := quic.ListenEarly(conn, tlsConfigQUICALPN(tlsConfig), quicConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	l := &quicListener{
-		ln:       ln,
+		ln:       listener,
 		connChan: make(chan net.Conn, 1024),
 		errChan:  make(chan error, 1),
 	}

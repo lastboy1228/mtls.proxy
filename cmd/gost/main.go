@@ -11,8 +11,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/ginuerzh/gost"
 	"github.com/go-log/log"
+	gost "github.com/lastboy1228/mtls.proxy"
 )
 
 var (
