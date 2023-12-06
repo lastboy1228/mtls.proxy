@@ -158,8 +158,6 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 	if u != "" {
 		u += "@"
 	}
-	log.Logf("[http] %s%s -> %s -> %s",
-		u, conn.RemoteAddr(), h.options.Node.String(), host)
 
 	if Debug {
 		dump, _ := httputil.DumpRequest(req, false)
@@ -308,10 +306,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			return
 		}
 	}
-
-	log.Logf("[http] %s <-> %s", conn.RemoteAddr(), host)
 	transport(conn, cc)
-	log.Logf("[http] %s >-< %s", conn.RemoteAddr(), host)
 }
 
 func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.Response) (ok bool) {
