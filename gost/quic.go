@@ -119,7 +119,11 @@ func (tr *quicTransporter) initSession(addr net.Addr, conn net.PacketConn) (*qui
 			quic.Version2,
 		},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	timeout := DialTimeout
+	if timeout < quicConfig.HandshakeIdleTimeout {
+		timeout = quicConfig.HandshakeIdleTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	session, err := quic.DialEarly(ctx, conn, addr, tlsConfigQUICALPN(config.TLSConfig), quicConfig)
 	if err != nil {
 		log.Logf("quic dial %s: %v", addr, err)
