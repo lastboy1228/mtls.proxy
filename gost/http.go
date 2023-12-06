@@ -247,13 +247,12 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		}
 
 		buf := bytes.Buffer{}
-		fmt.Fprintf(&buf, "%s -> %s -> ",
+		fmt.Fprintf(&buf, "%s -> (gost)%s -> ",
 			conn.RemoteAddr(), h.options.Node.String())
 		for _, nd := range route.route {
 			fmt.Fprintf(&buf, "%d@%s -> ", nd.ID, nd.String())
 		}
-		fmt.Fprintf(&buf, "%s", host)
-		log.Log("[route]", buf.String())
+		fmt.Fprintf(&buf, "(target)%s", host)
 
 		// forward http request
 		lastNode := route.LastNode()
@@ -274,9 +273,11 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			ResolverChainOption(h.options.Resolver),
 		)
 		if err == nil {
+			log.Log("[route]", buf.String())
 			break
 		}
-		log.Logf("[http] %s -> %s : %s", conn.RemoteAddr(), conn.LocalAddr(), err)
+		fmt.Fprintf(&buf, ": %s", err)
+		log.Log("[route]", buf.String())
 	}
 
 	if err != nil {

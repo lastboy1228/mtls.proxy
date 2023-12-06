@@ -89,9 +89,11 @@ func (c *http2Connector) ConnectContext(ctx context.Context, conn net.Conn, netw
 	}
 	resp, err := cc.client.Do(req)
 	if err != nil {
+		log.Logf("http2 connection to %s failed", cc.addr)
 		cc.Close()
 		return nil, err
 	}
+	log.Logf("http2 stream for %s established in connection to %s", address, cc.addr)
 	if Debug {
 		dump, _ := httputil.DumpResponse(resp, false)
 		log.Log("[http2]", string(dump))
@@ -107,8 +109,10 @@ func (c *http2Connector) ConnectContext(ctx context.Context, conn net.Conn, netw
 		closed: make(chan struct{}),
 	}
 
-	hc.remoteAddr, _ = net.ResolveTCPAddr("tcp", address)
-	hc.localAddr, _ = net.ResolveTCPAddr("tcp", cc.addr)
+	hc.proxyedHost = address
+	hc.remoteHost = cc.addr
+	hc.remoteAddr, _ = net.ResolveTCPAddr("tcp", cc.addr)
+	hc.localAddr = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
 
 	return hc, nil
 }
@@ -141,20 +145,13 @@ func (tr *http2Transporter) Dial(addr string, options ...DialOption) (net.Conn, 
 
 	client, ok := tr.clients[addr]
 	if !ok {
-		// NOTE: There is no real connection to the HTTP2 server at this moment.
-		// So we try to connect to the server to check the server health.
-		conn, err := opts.Chain.Dial(addr)
-		if err != nil {
-			log.Log("http2 dial:", addr, err)
-			return nil, err
-		}
-		conn.Close()
-
 		timeout := opts.Timeout
 		if timeout <= 0 {
 			timeout = DialTimeout
 		}
 		transport := http2.Transport{
+			// 客户端发送ping frame进行连接探测；服务端IdleTimeout是5分钟，即使期间存在ping也认为是空闲连接
+			ReadIdleTimeout: 60 * time.Second,
 			TLSClientConfig: tr.tlsConfig,
 			DialTLS: func(network, adr string, cfg *tls.Config) (net.Conn, error) {
 				conn, err := opts.Chain.Dial(adr)
@@ -177,6 +174,7 @@ func (tr *http2Transporter) Dial(addr string, options ...DialOption) (net.Conn, 
 		onClose: func() {
 			tr.clientMutex.Lock()
 			defer tr.clientMutex.Unlock()
+			log.Logf("http2 client to %s closed", addr)
 			delete(tr.clients, addr)
 		},
 	}, nil
@@ -694,8 +692,8 @@ func H2Listener(addr string, config *tls.Config, path string) (Listener, error) 
 	l := &h2Listener{
 		Listener: tcpKeepAliveListener{ln.(*net.TCPListener)},
 		server: &http2.Server{
-			// MaxConcurrentStreams:         1000,
-			PermitProhibitedCipherSuites: true,
+			MaxConcurrentStreams:         100,
+			PermitProhibitedCipherSuites: false,
 			IdleTimeout:                  5 * time.Minute,
 		},
 		tlsConfig: config,
@@ -832,11 +830,13 @@ func (l *h2Listener) Accept() (conn net.Conn, err error) {
 
 // HTTP2 connection, wrapped up just like a net.Conn
 type http2Conn struct {
-	r          io.Reader
-	w          io.Writer
-	remoteAddr net.Addr
-	localAddr  net.Addr
-	closed     chan struct{}
+	r           io.Reader
+	w           io.Writer
+	proxyedHost string
+	remoteHost  string
+	remoteAddr  net.Addr
+	localAddr   net.Addr
+	closed      chan struct{}
 }
 
 func (c *http2Conn) Read(b []byte) (n int, err error) {
@@ -860,6 +860,7 @@ func (c *http2Conn) Close() (err error) {
 	if w, ok := c.w.(io.Closer); ok {
 		err = w.Close()
 	}
+	log.Logf("http2 stream for %s closed", c.proxyedHost)
 	return
 }
 

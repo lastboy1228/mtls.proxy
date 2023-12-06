@@ -346,7 +346,8 @@ func (c *Chain) selectRouteFor(addr string) (route *Chain, err error) {
 		}
 
 		if node.Bypass.Contains(addr) {
-			break
+			// 跳过当前hop，改为使用下一个hop
+			continue
 		}
 
 		if node.Client.Transporter.Multiplex() {

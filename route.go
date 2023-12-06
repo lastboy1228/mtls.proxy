@@ -212,10 +212,15 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 			Timeout:     timeout,
 			IdleTimeout: node.GetDuration("idle"),
 		}
+		ttl := node.GetDuration("ttl")
+		if ttl > 0 {
+			// 客户端配置了ttl，就必定开启心跳保持
+			config.KeepAlive = true
+		}
 		if config.KeepAlive {
-			config.KeepAlivePeriod = node.GetDuration("ttl")
+			config.KeepAlivePeriod = ttl
 			if config.KeepAlivePeriod == 0 {
-				config.KeepAlivePeriod = 10 * time.Second
+				config.KeepAlivePeriod = 30 * time.Second
 			}
 		}
 
@@ -467,10 +472,13 @@ func (r *route) GenRouters() ([]router, error) {
 				IdleTimeout: node.GetDuration("idle"),
 			}
 			if config.KeepAlive {
-				config.KeepAlivePeriod = node.GetDuration("ttl")
+				config.KeepAlivePeriod = ttl
 				if config.KeepAlivePeriod == 0 {
-					config.KeepAlivePeriod = 10 * time.Second
+					config.KeepAlivePeriod = 30 * time.Second
 				}
+			}
+			if config.IdleTimeout == 0 {
+				config.IdleTimeout = 5 * time.Minute
 			}
 			if cipher := node.Get("cipher"); cipher != "" {
 				sum := sha256.Sum256([]byte(cipher))
