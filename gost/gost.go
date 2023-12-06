@@ -80,7 +80,7 @@ var (
 	// DefaultUserAgent is the default HTTP User-Agent header used by HTTP and websocket.
 	DefaultUserAgent = "Chrome/78.0.3904.106"
 
-	DefaultProxyAgent = "gost/" + Version
+	DefaultProxyAgent = "mtls.proxy/" + Version
 
 	// DefaultMTU is the default mtu for tun/tap device
 	DefaultMTU = 1350

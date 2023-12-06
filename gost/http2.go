@@ -600,6 +600,9 @@ func HTTP2Listener(addr string, config *tls.Config) (Listener, error) {
 	if config == nil {
 		config = DefaultTLSConfig
 	}
+	// 服务端要求tls1.3
+	config.MinVersion = tls.VersionTLS13
+	config.CurvePreferences = []tls.CurveID{tls.X25519}
 	server := &http.Server{
 		Addr:      addr,
 		Handler:   http.HandlerFunc(l.handleFunc),

@@ -167,6 +167,10 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 	if tlsConfig == nil {
 		tlsConfig = DefaultTLSConfig
 	}
+	// 服务端要求tls1.3
+	tlsConfig.MinVersion = tls.VersionTLS13
+	tlsConfig.CurvePreferences = []tls.CurveID{tls.X25519}
+
 	var conn net.PacketConn
 
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
