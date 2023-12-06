@@ -150,8 +150,8 @@ func (tr *http2Transporter) Dial(addr string, options ...DialOption) (net.Conn, 
 			timeout = DialTimeout
 		}
 		transport := http2.Transport{
-			// 客户端发送ping frame进行连接探测；服务端IdleTimeout是5分钟，即使期间存在ping也认为是空闲连接
-			ReadIdleTimeout: 60 * time.Second,
+			// 客户端发送ping frame进行连接探测；服务端IdleTimeout默认是5分钟，即使期间存在ping也认为是空闲连接
+			ReadIdleTimeout: opts.TTL,
 			TLSClientConfig: tr.tlsConfig,
 			DialTLS: func(network, adr string, cfg *tls.Config) (net.Conn, error) {
 				conn, err := opts.Chain.Dial(adr)
@@ -589,22 +589,31 @@ type http2Listener struct {
 	errChan  chan error
 }
 
+type Http2Config struct {
+	TLSConfig       *tls.Config
+	KeepAlive       bool
+	KeepAlivePeriod time.Duration
+	IdleTimeout     time.Duration
+}
+
 // HTTP2Listener creates a Listener for HTTP2 proxy server.
-func HTTP2Listener(addr string, config *tls.Config) (Listener, error) {
+func HTTP2Listener(addr string, config *Http2Config) (Listener, error) {
 	l := &http2Listener{
 		connChan: make(chan *http2ServerConn, 1024),
 		errChan:  make(chan error, 1),
 	}
-	if config == nil {
-		config = DefaultTLSConfig
+	if config.TLSConfig == nil {
+		config.TLSConfig = DefaultTLSConfig
 	}
 	// 服务端要求tls1.3
-	config.MinVersion = tls.VersionTLS13
-	config.CurvePreferences = []tls.CurveID{tls.X25519}
+	config.TLSConfig.MinVersion = tls.VersionTLS13
+	config.TLSConfig.CurvePreferences = []tls.CurveID{tls.X25519}
+
 	server := &http.Server{
-		Addr:      addr,
-		Handler:   http.HandlerFunc(l.handleFunc),
-		TLSConfig: config,
+		Addr:        addr,
+		Handler:     http.HandlerFunc(l.handleFunc),
+		TLSConfig:   config.TLSConfig,
+		IdleTimeout: config.IdleTimeout,
 	}
 	if err := http2.ConfigureServer(server, nil); err != nil {
 		return nil, err
@@ -617,7 +626,7 @@ func HTTP2Listener(addr string, config *tls.Config) (Listener, error) {
 	}
 	l.addr = ln.Addr()
 
-	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config)
+	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config.TLSConfig)
 	go func() {
 		err := server.Serve(ln)
 		if err != nil {

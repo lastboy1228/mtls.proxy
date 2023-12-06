@@ -171,6 +171,7 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 	wsOpts.Path = node.Get("path")
 
 	timeout := node.GetDuration("timeout")
+	ttl := node.GetDuration("ttl")
 
 	var tr gost.Transporter
 	switch node.Transport {
@@ -212,7 +213,7 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 			Timeout:     timeout,
 			IdleTimeout: node.GetDuration("idle"),
 		}
-		ttl := node.GetDuration("ttl")
+
 		if ttl > 0 {
 			// 客户端配置了ttl，就必定开启心跳保持
 			config.KeepAlive = true
@@ -289,6 +290,7 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 
 	node.DialOptions = append(node.DialOptions,
 		gost.TimeoutDialOption(timeout),
+		gost.TtlDialOption(ttl),
 		gost.HostDialOption(host),
 	)
 
@@ -487,7 +489,21 @@ func (r *route) GenRouters() ([]router, error) {
 
 			ln, err = gost.QUICListener(node.Addr, config)
 		case "http2":
-			ln, err = gost.HTTP2Listener(node.Addr, tlsCfg)
+			config := &gost.Http2Config{
+				TLSConfig:   tlsCfg,
+				KeepAlive:   node.GetBool("keepalive"),
+				IdleTimeout: node.GetDuration("idle"),
+			}
+			if config.KeepAlive {
+				config.KeepAlivePeriod = ttl
+				if config.KeepAlivePeriod == 0 {
+					config.KeepAlivePeriod = 60 * time.Second
+				}
+			}
+			if config.IdleTimeout == 0 {
+				config.IdleTimeout = 5 * time.Minute
+			}
+			ln, err = gost.HTTP2Listener(node.Addr, config)
 		case "h2":
 			ln, err = gost.H2Listener(node.Addr, tlsCfg, node.Get("path"))
 		case "h2c":

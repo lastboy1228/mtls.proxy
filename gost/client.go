@@ -82,6 +82,7 @@ type Transporter interface {
 // DialOptions describes the options for Transporter.Dial.
 type DialOptions struct {
 	Timeout time.Duration
+	TTL     time.Duration
 	Chain   *Chain
 	Host    string
 }
@@ -93,6 +94,12 @@ type DialOption func(opts *DialOptions)
 func TimeoutDialOption(timeout time.Duration) DialOption {
 	return func(opts *DialOptions) {
 		opts.Timeout = timeout
+	}
+}
+
+func TtlDialOption(ttl time.Duration) DialOption {
+	return func(opts *DialOptions) {
+		opts.TTL = ttl
 	}
 }
 
