@@ -12,7 +12,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/go-log/log"
-	gost "github.com/lastboy1228/mtls.proxy"
+	"github.com/lastboy1228/mtls.proxy/gost"
 )
 
 var (

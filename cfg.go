@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	gost "github.com/lastboy1228/mtls.proxy"
+	"github.com/lastboy1228/mtls.proxy/gost"
 )
 
 var (

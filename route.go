@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/go-log/log"
-	gost "github.com/lastboy1228/mtls.proxy"
+	"github.com/lastboy1228/mtls.proxy/gost"
 )
 
 type stringList []string
