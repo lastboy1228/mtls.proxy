@@ -215,9 +215,6 @@ func (l *quicListener) listenLoop() {
 }
 
 func (l *quicListener) sessionLoop(session quic.Connection) {
-	log.Logf("[quic] %s <-> %s", session.RemoteAddr(), session.LocalAddr())
-	defer log.Logf("[quic] %s >-< %s", session.RemoteAddr(), session.LocalAddr())
-
 	for {
 		stream, err := session.AcceptStream(context.Background())
 		if err != nil {
