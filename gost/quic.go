@@ -93,6 +93,7 @@ func (tr *quicTransporter) Dial(addr string, options ...DialOption) (conn net.Co
 	conn, err = session.GetConn()
 	if err != nil {
 		session.Close()
+		log.Logf("quic session to %s closed", addr)
 		delete(tr.sessions, addr)
 		return nil, err
 	}
