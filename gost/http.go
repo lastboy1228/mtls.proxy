@@ -289,7 +289,15 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		resp.Write(conn)
 		return
 	}
-	defer cc.Close()
+	defer func() {
+		switch cc.(type) {
+		case *quicConn:
+			log.Logf("quic stream for (client)%s <> %s closing", conn.RemoteAddr(), req.Host)
+		case *http2Conn:
+			log.Logf("http2 stream for (client)%s <> %s closing", conn.RemoteAddr(), req.Host)
+		}
+		cc.Close()
+	}()
 
 	if req.Method == http.MethodConnect {
 		b := []byte("HTTP/1.1 200 Connection established\r\n" +

@@ -86,6 +86,7 @@ func (tr *quicTransporter) Dial(addr string, options ...DialOption) (conn net.Co
 			pc.Close()
 			return nil, err
 		}
+		log.Logf("quic session to %s established", addr)
 		tr.sessions[addr] = session
 	}
 

@@ -869,7 +869,6 @@ func (c *http2Conn) Close() (err error) {
 	if w, ok := c.w.(io.Closer); ok {
 		err = w.Close()
 	}
-	log.Logf("http2 stream for %s closed", c.proxyedHost)
 	return
 }
 
