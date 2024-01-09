@@ -235,9 +235,9 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 
 	var err error
 	var cc net.Conn
-	var route *Chain
+	var routeChain *Chain
 	for i := 0; i < retries; i++ {
-		route, err = h.options.Chain.selectRouteFor(host)
+		routeChain, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
 			log.Logf("[http] %s -> %s : %s",
 				conn.RemoteAddr(), conn.LocalAddr(), err)
@@ -245,19 +245,21 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		}
 
 		buf := bytes.Buffer{}
-		fmt.Fprintf(&buf, "%s -> (gost)%s -> ",
-			conn.RemoteAddr(), h.options.Node.String())
-		for _, nd := range route.route {
+		// listen handler（-L）的地址：h.options.Node.String()
+		// 客户端的地址
+		fmt.Fprintf(&buf, "%s --> ", conn.RemoteAddr())
+		for _, nd := range routeChain.route {
+			// forwarder的地址
 			fmt.Fprintf(&buf, "%d@%s -> ", nd.ID, nd.String())
 		}
 		fmt.Fprintf(&buf, "(target)%s", host)
 
 		// forward http request
-		lastNode := route.LastNode()
+		lastNode := routeChain.LastNode()
 		if req.Method != http.MethodConnect &&
 			lastNode.Protocol == "http" &&
 			!h.options.HTTPTunnel {
-			err = h.forwardRequest(conn, req, route)
+			err = h.forwardRequest(conn, req, routeChain)
 			if err == nil {
 				return
 			}
@@ -265,7 +267,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			continue
 		}
 
-		cc, err = route.Dial(host,
+		cc, err = routeChain.Dial(host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
